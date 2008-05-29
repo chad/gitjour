@@ -1,0 +1,48 @@
+#!/usr/bin/env ruby
+require 'rubygems'
+require 'dnssd'
+require 'set'
+Thread.abort_on_exception = true
+
+GitService = Struct.new(:name, :host, :port)
+
+def service_list(looking_for = nil)
+  wait_seconds = 5
+  
+  service_list = Set.new  
+  waiting_thread = Thread.new { sleep wait_seconds }
+  
+  service = DNSSD.browse "_git._tcp" do |reply|
+    DNSSD.resolve reply.name, reply.type, reply.domain do |resolve_reply|
+      service_list << GitService.new(reply.name, resolve_reply.target)
+      if looking_for && reply.name == looking_for
+        waiting_thread.kill
+      end
+    end
+  end
+  puts "Gathering for up to #{wait_seconds} seconds..."
+  waiting_thread.join
+  service.stop 
+  service_list
+end
+
+case ARGV.first
+  when "list"
+    service_list.each do |service|
+      puts "#{service.name} on #{service.host}: gitjour clone #{service.name}"
+    end
+  when "clone"
+    name_of_share = ARGV[1] || flunk("You have to pass in a name")
+    host = service_list(name_of_share).detect{|service| service.name}.host
+    system("git clone git://#{host}/ #{name_of_share}")
+  when "serve"
+    name = File.basename(Dir.pwd)
+    tr = DNSSD::TextRecord.new
+    tr['unfortunately'] = 'have to have a text record'
+    DNSSD.register(name, "_git._tcp", 'local', 9148, tr.encode) do |register_reply| 
+      p register_reply
+    end
+    `git-daemon --verbose --export-all --base-path=#{Dir.pwd}`
+end
+
+
