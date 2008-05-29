@@ -43,6 +43,15 @@ case ARGV.shift
       p register_reply
     end
     `git-daemon --verbose --export-all --base-path=#{Dir.pwd}`
+  else
+    puts "Serve up and use git repositories via Bonjour/DNSSD."
+    puts "Usage: gitjour <command> [name]"
+    puts
+    puts "  list      Lists available repositories."
+    puts "  clone     Clone a gitjour served repository."
+    puts "  serve     Serve up the current directory via gitjour."
+    puts "            Optionally pass name to not use pwd."
+    puts
 end
 
 
