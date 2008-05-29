@@ -1,3 +1,4 @@
+bin/gitjour
 History.txt
 License.txt
 Manifest.txt

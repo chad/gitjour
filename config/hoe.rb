@@ -1,8 +1,8 @@
 require 'gitjour/version'
 
-AUTHOR = 'FIXME full name'  # can also be an array of Authors
-EMAIL = "FIXME email"
-DESCRIPTION = "description of gem"
+AUTHOR = ['Chad Fowler', 'Rich Kilmer', 'Evan Phoenix']  # can also be an array of Authors
+EMAIL = "chad@chadfowler.com"
+DESCRIPTION = "Automates DNSSD-powered serving and cloning of git repositories."
 GEM_NAME = 'gitjour' # what ppl will type to install your gem
 RUBYFORGE_PROJECT = 'gitjour' # The unix name for your project
 HOMEPATH = "http://#{RUBYFORGE_PROJECT}.rubyforge.org"
@@ -10,7 +10,7 @@ DOWNLOAD_PATH = "http://rubyforge.org/projects/#{RUBYFORGE_PROJECT}"
 
 @config_file = "~/.rubyforge/user-config.yml"
 @config = nil
-RUBYFORGE_USERNAME = "unknown"
+RUBYFORGE_USERNAME = "chadfowler"
 def rubyforge_username
   unless @config
     begin
@@ -56,7 +56,6 @@ hoe = Hoe.new(GEM_NAME, VERS) do |p|
   p.rubyforge_name = RUBYFORGE_PROJECT if RUBYFORGE_PROJECT
   p.test_globs = ["test/**/test_*.rb"]
   p.clean_globs |= ['**/.*.sw?', '*.gem', '.config', '**/.DS_Store']  #An array of file patterns to delete on clean.
-  
   # == Optional
   p.changes = p.paragraphs_of("History.txt", 0..1).join("\n\n")
   #p.extra_deps = []     # An array of rubygem dependencies [name, version], e.g. [ ['active_support', '>= 1.3.1'] ]
