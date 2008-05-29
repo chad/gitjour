@@ -38,7 +38,7 @@ case ARGV.shift
   when "serve"
     name = ARGV.shift || File.basename(Dir.pwd)
     tr = DNSSD::TextRecord.new
-    tr['unfortunately'] = 'have to have a text record'
+    tr['description'] = File.read(".git/description") rescue "a git project"
     DNSSD.register(name, "_git._tcp", 'local', 9148, tr.encode) do |register_reply| 
       p register_reply
     end
