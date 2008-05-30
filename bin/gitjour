@@ -4,7 +4,7 @@ require 'dnssd'
 require 'set'
 Thread.abort_on_exception = true
 
-GitService = Struct.new(:name, :host, :port)
+GitService = Struct.new(:name, :host, :description)
 
 def service_list(looking_for = nil)
   wait_seconds = 5
@@ -14,7 +14,7 @@ def service_list(looking_for = nil)
   
   service = DNSSD.browse "_git._tcp" do |reply|
     DNSSD.resolve reply.name, reply.type, reply.domain do |resolve_reply|
-      service_list << GitService.new(reply.name, resolve_reply.target)
+      service_list << GitService.new(reply.name, resolve_reply.target, resolve_reply.text_record['description'])
       if looking_for && reply.name == looking_for
         waiting_thread.kill
       end
@@ -30,6 +30,7 @@ case ARGV.shift
   when "list"
     service_list.each do |service|
       puts "#{service.name} on #{service.host}: gitjour clone #{service.name}"
+      puts "  #{service.description}" if service.description && service.description != ''
     end
   when "clone"
     name_of_share = ARGV.shift || fail("You have to pass in a name")
