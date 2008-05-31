@@ -2,9 +2,11 @@
 require 'rubygems'
 require 'dnssd'
 require 'set'
+require 'cooloptions'
+
 Thread.abort_on_exception = true
 
-GitService = Struct.new(:name, :host, :port)
+GitService = Struct.new(:name, :host, :port, :description)
 
 def service_list(looking_for = nil)
   wait_seconds = 5
@@ -14,7 +16,7 @@ def service_list(looking_for = nil)
   
   service = DNSSD.browse "_git._tcp" do |reply|
     DNSSD.resolve reply.name, reply.type, reply.domain do |resolve_reply|
-      service_list << GitService.new(reply.name, resolve_reply.target)
+      service_list << GitService.new(reply.name, resolve_reply.target, resolve_reply.port, resolve_reply.text_record['description'])
       if looking_for && reply.name == looking_for
         waiting_thread.kill
       end
@@ -26,32 +28,50 @@ def service_list(looking_for = nil)
   service_list
 end
 
-case ARGV.shift
+COMMANDS = {
+  'list' => 'Lists available repositories.',
+  'clone' => 'Clone a gitjour served repository.',
+  'serve' => 'Serve up the current directory via gitjour.'
+}
+options = CoolOptions.parse!("[options] command [name]") do |o|
+  o.desc 'Serve up and use git repositories via Bonjour/DNSSD.'
+  o.desc "\n"
+  
+  o.desc "Commands:"
+  COMMANDS.each do |c, help|
+    o.desc "  #{c.ljust(5)}  #{help}"
+  end
+  
+  o.desc "\n"
+  
+  o.desc "Options:"
+  o.on 'port PORT', "Pass to serve to serve on a different port.", 9148
+  
+  o.after do |result|
+    (result.command = ARGV.shift) || o.error("Command is required.")
+    o.error("Unknown command.") if !COMMANDS.keys.include?(result.command)
+    result.name = ARGV.shift
+    o.error("Name is required.") if result.command == "clone" && !result.name
+  end
+end
+
+case options.command
   when "list"
     service_list.each do |service|
       puts "#{service.name} on #{service.host}: gitjour clone #{service.name}"
     end
   when "clone"
-    name_of_share = ARGV.shift || fail("You have to pass in a name")
-    host = service_list(name_of_share).detect{|service| service.name == name_of_share}.host
-    system("git clone git://#{host}/ #{name_of_share}")
+    name_of_share = options.name
+    service = service_list(options.name).detect{|service| service.name == options.name}
+    system("git clone git://#{service.host}:#{service.port}/ #{options.name}")
   when "serve"
-    name = ARGV.shift || File.basename(Dir.pwd)
+    name = options.name || File.basename(Dir.pwd)
     tr = DNSSD::TextRecord.new
     tr['description'] = File.read(".git/description") rescue "a git project"
-    DNSSD.register(name, "_git._tcp", 'local', 9148, tr.encode) do |register_reply| 
+    DNSSD.register(name, "_git._tcp", 'local', options.port.to_i, tr.encode) do |register_reply| 
       p register_reply
     end
-    `git-daemon --verbose --export-all --base-path=#{Dir.pwd}`
-  else
-    puts "Serve up and use git repositories via Bonjour/DNSSD."
-    puts "Usage: gitjour <command> [name]"
-    puts
-    puts "  list      Lists available repositories."
-    puts "  clone     Clone a gitjour served repository."
-    puts "  serve     Serve up the current directory via gitjour."
-    puts "            Optionally pass name to not use pwd."
-    puts
+    `git-daemon --verbose --export-all --base-path=#{Dir.pwd} --port=#{options.port}`
 end
 
 
