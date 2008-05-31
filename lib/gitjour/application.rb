@@ -13,7 +13,7 @@ module Gitjour
           when "list"
             list
           when "clone"
-            clone(repository_name)
+            clone(argument)
           when "serve"
             serve(argument)
           else
