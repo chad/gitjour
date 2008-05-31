@@ -1,3 +1,4 @@
+require 'rubygems'
 require 'dnssd'
 require 'set'
 Thread.abort_on_exception = true
@@ -29,8 +30,10 @@ module Gitjour
       case operation
         when "list"
           service_list.each do |service|
-            puts "#{service.name} on #{service.host}: gitjour clone #{service.name}"
-            puts "  #{service.description}" if service.description && service.description != ''
+            puts "=== #{service.name} on #{service.host} ==="
+	    puts "  gitjour clone #{service.name}"
+            puts "  #{service.description}" if service.description && service.description != '' && service.description !~ /^Unnamed repository/
+	    puts
           end
         when "clone"
           name_of_share = argument || fail("You have to pass in a name")
