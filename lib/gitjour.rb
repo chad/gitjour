@@ -1,5 +1,1 @@
-$:.unshift File.dirname(__FILE__)
-
-module Gitjour
-  
-end
+require 'gitjour/application'
