@@ -21,8 +21,9 @@ options = CoolOptions.parse!("[options] command [name]") do |o|
   o.desc "\n"
   
   o.desc "Options:"
-  o.on 'port PORT', "Pass to serve to serve on a different port.", 9418
-  o.on 'verbose',   "Verbose output.", false
+  o.on '(P)port PORT', "Pass to serve to serve on a different port.", 9418
+  o.on 'path PATH',    "Path to serve."
+  o.on 'verbose',      "Verbose output.", false
   
   o.after do |result|
     (result.command = ARGV.shift) || o.error("Command is required.")
