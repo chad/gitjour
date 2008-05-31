@@ -38,15 +38,11 @@ module Gitjour
         when "clone"
           name_of_share = argument || fail("You have to pass in a name")
           host = service_list(name_of_share).detect{|service| service.name == name_of_share}.host rescue exit_with!("Couldn't find #{name_of_share}")
-          system("git clone git://#{host}/ #{name_of_share}")
+          system("git clone git://#{host}/ #{name_of_share}/")
         when "serve"
-          name = argument || File.basename(Dir.pwd)
-          tr = DNSSD::TextRecord.new
-          tr['description'] = File.read(".git/description") rescue "a git project"
-          DNSSD.register(name, "_git._tcp", 'local', 9148, tr.encode) do |register_reply| 
-            puts "Registered #{name}.  Starting service."
-          end
-          `git-daemon --verbose --export-all --base-path=#{Dir.pwd}`
+          path = File.expand_path(argument) || Dir.pwd
+          File.exists?("#{path}/.git") ? announce_repo(path) : Dir["#{path}/*"].each{|dir| announce_repo(dir) if File.directory?(dir)}
+          `git-daemon --verbose --export-all --base-path=#{path} --base-path-relaxed`
         else
           puts "Serve up and use git repositories via Bonjour/DNSSD."
           puts "Usage: gitjour <command> [name]"
@@ -61,6 +57,18 @@ module Gitjour
     def self.exit_with!(message)
       STDERR.puts message
       exit!
+    end
+    
+    protected 
+
+    def self.announce_repo(path)
+      return unless File.exists?("#{path}/.git")
+      name = "#{File.basename(path)}"
+      tr = DNSSD::TextRecord.new
+      tr['description'] = File.read(".git/description") rescue "a git project"
+      DNSSD.register(name, "_git._tcp", 'local', 9148, tr.encode) do |register_reply| 
+        puts "Registered #{name}.  Starting service."
+      end
     end
   end
 end
