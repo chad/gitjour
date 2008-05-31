@@ -18,7 +18,7 @@ module Gitjour
   	          puts
             end
           when "clone"
-            clone(repository_name)
+            clone(argument)
           when "serve"
             serve(argument)
           else
