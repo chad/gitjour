@@ -7,8 +7,8 @@ Rakefile
 config/hoe.rb
 config/requirements.rb
 lib/gitjour.rb
+lib/gitjour/application.rb
 lib/gitjour/version.rb
-log/debug.log
 script/destroy
 script/generate
 script/txt2html

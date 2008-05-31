@@ -1,6 +1,6 @@
 module Gitjour #:nodoc:
   module VERSION #:nodoc:
-    MAJOR = 3
+    MAJOR = 6
     MINOR = 0
     TINY  = 0
 
