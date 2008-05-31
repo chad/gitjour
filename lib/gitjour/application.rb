@@ -34,7 +34,7 @@ module Gitjour
           end
         when "clone"
           name_of_share = argument || fail("You have to pass in a name")
-          host = service_list(name_of_share).detect{|service| service.name == name_of_share}.host
+          host = service_list(name_of_share).detect{|service| service.name == name_of_share}.host rescue exit_with!("Couldn't find #{name_of_share}")
           system("git clone git://#{host}/ #{name_of_share}")
         when "serve"
           name = argument || File.basename(Dir.pwd)
@@ -54,6 +54,10 @@ module Gitjour
           puts "            Optionally pass name to not use pwd."
           puts
       end
+    end
+    def self.exit_with!(message)
+      STDERR.puts message
+      exit!
     end
   end
 end
