@@ -33,4 +33,8 @@ options = CoolOptions.parse!("[options] command [name]") do |o|
   end
 end
 
+trap "INT" do
+  exit!
+end
+
 Gitjour::Application.run(options)
