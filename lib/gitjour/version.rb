@@ -1,7 +1,7 @@
 module Gitjour #:nodoc:
   module VERSION #:nodoc:
-    MAJOR = 5
-    MINOR = 4
+    MAJOR = 6
+    MINOR = 0
     TINY  = 0
 
     STRING = [MAJOR, MINOR, TINY].join('.')
