@@ -25,7 +25,7 @@ module Gitjour
       service.stop 
       service_list
     end
-    def self.run(operation, argument = nil)
+    def self.run(operation = nil, argument = nil)
       case operation
         when "list"
           service_list.each do |service|
