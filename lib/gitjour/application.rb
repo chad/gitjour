@@ -1,6 +1,8 @@
 require 'rubygems'
 require 'dnssd'
 require 'set'
+require 'gitjour/version'
+
 Thread.abort_on_exception = true
 
 module Gitjour
@@ -9,17 +11,16 @@ module Gitjour
   class Application
 
     class << self
-      def run(options)
-        @@verbose = options.verbose
-        case options.command
+      def run(*args)
+        case args.shift
           when "list"
             list
           when "clone"
-            clone(options.name)
+            clone(*args)
           when "serve"
-            serve(options.name, options.path, options.port)
+            serve(*args)
           when "remote"
-            remote(options.name)
+            remote(*args)
           else
             help
         end
@@ -28,35 +29,73 @@ module Gitjour
       private
 			def list
 				service_list.each do |service|
-          puts "=== #{service.name} on #{service.host} ==="
+          puts "=== #{service.name} on #{service.host}:#{service.port} ==="
           puts "  gitjour clone #{service.name}"
-          puts "  #{service.description}" if service.description && service.description != '' && service.description !~ /^Unnamed repository/
+          if service.description != '' && service.description !~ /^Unnamed repository/
+            puts "  #{service.description}"
+          end
           puts
         end
 			end
 
-      def get_host_and_share(repository_name)
-        name_of_share = repository_name || fail("You have to pass in a name")
-        host = service_list(name_of_share).detect{|service| service.name == name_of_share}.host rescue exit_with!("Couldn't find #{name_of_share}")
-        system("git clone git://#{host}/ #{name_of_share}/")  
-        [host, name_of_share]
+      def clone(repository_name, *rest)
+        dir = rest.shift || repository_name
+        if File.exists?(dir)
+          exit_with! "ERROR: Clone directory '#{dir}' already exists."
+        end
+
+        puts "Cloning '#{repository_name}' into directory '#{dir}'..."
+
+        service = locate_repo repository_name
+        puts "Connecting to #{service.host}:#{service.port}"
+
+        system "git clone git://#{service.host}:#{service.port}/ #{dir}/"
       end
 
-      def clone(name)
-        service = service_list(name).detect{|service| service.name == name} rescue exit_with!("Couldn't find #{name}")
-        cl("git clone git://#{service.host}:#{service.port}/ #{name}/")
+      def remote(repository_name, *rest)
+        dir = rest.shift || repository_name
+        service = locate_repo repository_name
+        system "git remote add #{dir} git://#{service.host}:#{service.port}/"
       end
 
-      def remote(repository_name,*rest)
-        host, name_of_share = get_host_and_share(repository_name)
-        system("git remote add #{name_of_share} git://#{host}/")
-      end
-
-      def serve(path, port)
-        path ||= Dir.pwd
+      def serve(path=Dir.pwd, *rest)
         path = File.expand_path(path)
-        File.exists?("#{path}/.git") ? announce_repo(path, port) : Dir["#{path}/*"].each_with_index{|dir,i| announce_repo(dir, port+i) if File.directory?(dir)}
-        cl("git-daemon --verbose --export-all --port=#{port} --base-path=#{path} --base-path-relaxed")
+        name = rest.shift || File.basename(path)
+        port = rest.shift || 9418
+        
+        if File.exists?("#{path}/.git")
+          announce_repo(path, name, port.to_i)
+        else
+          Dir["#{path}/*"].each do |dir|
+            if File.directory?(dir)
+              name = File.basename(dir)
+              announce_repo(dir, name, 9418)
+            end
+          end
+        end
+
+        `git-daemon --verbose --export-all --port=#{port} --base-path=#{path} --base-path-relaxed`
+      end
+
+      def help
+        puts "Gitjour #{Gitjour::VERSION::STRING}"
+        puts "Serve up and use git repositories via Bonjour/DNSSD."
+        puts "\nUsage: gitjour <command> [args]"
+        puts
+        puts "  list"
+        puts "      Lists available repositories."
+        puts
+        puts "  clone <project> [<directory>]"
+        puts "      Clone a gitjour served repository."
+        puts
+        puts "  serve <path_to_project> [<name_of_project>] [<port>] or"
+        puts "        <path_to_projects>"
+        puts "      Serve up the current directory or projects via gitjour."
+        puts
+        puts "  remote <project> [<name>]"
+        puts "      Add a Bonjour remote into your current repository."
+        puts "      Optionally pass name to not use pwd."
+        puts
       end
 
       def exit_with!(message)
@@ -64,43 +103,61 @@ module Gitjour
         exit!
       end
 
-      def service_list(looking_for = nil)
-        wait_seconds = 5
+      class Done < RuntimeError; end
 
-        service_list = Set.new
-        waiting_thread = Thread.new { sleep wait_seconds }
+      def discover(timeout=5)
+        waiting_thread = Thread.current
 
-        service = DNSSD.browse "_git._tcp" do |reply|
+        dns = DNSSD.browse "_git._tcp" do |reply|
           DNSSD.resolve reply.name, reply.type, reply.domain do |resolve_reply|
-            service_list << GitService.new(reply.name, resolve_reply.target, resolve_reply.port, resolve_reply.text_record['description'])
-            if looking_for && reply.name == looking_for
-              waiting_thread.kill
+            service = GitService.new(reply.name,
+                                     resolve_reply.target,
+                                     resolve_reply.port,
+                                     resolve_reply.text_record['description'].to_s)
+            begin
+              yield service
+            rescue Done
+              waiting_thread.run
             end
           end
         end
-        puts "Gathering for up to #{wait_seconds} seconds..."
-        waiting_thread.join
-        service.stop
-        service_list
+
+        puts "Gathering for up to #{timeout} seconds..."
+        sleep timeout
+        dns.stop
       end
 
-      def announce_repo(name, path, port)
+      def locate_repo(name)
+        found = nil
+
+        discover do |obj|
+          if obj.name == name
+            found = obj
+            raise Done
+          end
+        end
+
+        return found
+      end
+
+      def service_list
+        list = Set.new
+        discover { |obj| list << obj }
+
+        return list
+      end
+
+      def announce_repo(path, name, port)
         return unless File.exists?("#{path}/.git")
-        name = share_name || File.basename(path)
+
         tr = DNSSD::TextRecord.new
-        tr['description'] = File.read(".git/description") rescue "a git project"
-        DNSSD.register(name, "_git._tcp", 'local', port, tr.encode) do |register_reply| 
-          puts "Registered #{name}.  Starting service."
+        tr['description'] = File.read("#{path}/.git/description") rescue "a git project"
+
+        DNSSD.register(name, "_git._tcp", 'local', port, tr.encode) do |rr|
+          puts "Registered #{name} on port #{port}. Starting service."
         end
       end
-      
-      def cl(command)
-        output = `#{command}`
-        if @@verbose
-          puts command
-          puts output
-        end
-      end
+
     end
   end
 end

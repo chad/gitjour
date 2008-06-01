@@ -1,41 +1,9 @@
 #!/usr/bin/env ruby
 require 'rubygems'
-require 'cooloptions'
 require 'gitjour'
-
-COMMANDS = {
-  'list' => 'Lists available repositories.',
-  'clone' => 'Clone a gitjour served repository.',
-  'serve' => 'Serve up the current directory via gitjour.'
-}
-
-options = CoolOptions.parse!("[options] command [name]") do |o|
-  o.desc 'Serve up and use git repositories via Bonjour/DNSSD.'
-  o.desc "\n"
-  
-  o.desc "Commands:"
-  COMMANDS.each do |c, help|
-    o.desc "  #{c.ljust(5)}  #{help}"
-  end
-  
-  o.desc "\n"
-  
-  o.desc "Options:"
-  o.on '(P)port PORT', "Pass to serve to serve on a different port.", 9418
-  o.on 'path PATH',    "Path to serve."
-  o.on 'verbose',      "Verbose output.", false
-  
-  o.after do |result|
-    (result.command = ARGV.shift) || o.error("Command is required.")
-    o.error("Unknown command.") if !COMMANDS.keys.include?(result.command)
-    result.name = ARGV.shift
-    o.error("Name is required.") if result.command == "clone" && !result.name
-    result.port = result.port.to_i
-  end
-end
 
 trap "INT" do
   exit!
 end
 
-Gitjour::Application.run(options)
+Gitjour::Application.run(*ARGV)
