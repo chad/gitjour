@@ -46,7 +46,10 @@ module Gitjour
 
         puts "Cloning '#{repository_name}' into directory '#{dir}'..."
 
-        service = locate_repo repository_name
+        unless service = locate_repo(repository_name)
+          exit_with! "ERROR: Unable to find project named '#{repository_name}'"
+        end
+
         puts "Connecting to #{service.host}:#{service.port}"
 
         system "git clone git://#{service.host}:#{service.port}/ #{dir}/"
