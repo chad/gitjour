@@ -60,9 +60,13 @@ module Gitjour
 
       def serve(path=Dir.pwd, *rest)
         path = File.expand_path(path)
-        name = rest.shift || File.basename(path)
         port = rest.shift || 9418
         
+        prefix = `git config --get gitjour.prefix`.chomp
+        prefix = ENV["USER"] if prefix.empty?
+        name   = rest.shift || File.basename(path)
+        name   = [prefix, name].compact.join("-")
+
         if File.exists?("#{path}/.git")
           announce_repo(path, name, port.to_i)
         else
