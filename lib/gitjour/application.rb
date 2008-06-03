@@ -60,12 +60,17 @@ module Gitjour
 
       def serve(path=Dir.pwd, *rest)
         path = File.expand_path(path)
+        name = rest.shift || File.basename(path)
         port = rest.shift || 9418
-        
-        prefix = `git config --get gitjour.prefix`.chomp
-        prefix = ENV["USER"] if prefix.empty?
-        name   = rest.shift || File.basename(path)
-        name   = [prefix, name].compact.join("-")
+
+        # If the name starts with ^, then don't apply the prefix
+        if name[0] == ?^
+          name = name[1..-1]
+        else
+          prefix = `git config --get gitjour.prefix`.chomp
+          prefix = ENV["USER"] if prefix.empty?
+          name   = [prefix, name].compact.join("-")
+        end
 
         if File.exists?("#{path}/.git")
           announce_repo(path, name, port.to_i)
@@ -95,6 +100,11 @@ module Gitjour
         puts "  serve <path_to_project> [<name_of_project>] [<port>] or"
         puts "        <path_to_projects>"
         puts "      Serve up the current directory or projects via gitjour."
+        puts
+        puts "      The name of your project is automatically prefixed with"
+        puts "      `git config --get gitjour.prefix` or your username (preference"
+        puts "      in that order). If you don't want a prefix, put a ^ on the front"
+        puts "      of the name_of_project (the ^ is removed before announcing)."
         puts
         puts "  remote <project> [<name>]"
         puts "      Add a Bonjour remote into your current repository."
